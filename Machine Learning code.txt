@@ -1,0 +1,951 @@
+import pandas as pd 
+survey = pd.read_csv("../input/kaggle-survey-2021/kaggle_survey_2021_responses.csv")   
+survey
+
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn import tree
+from sklearn.tree import plot_tree
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn import metrics
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import VotingClassifier
+import matplotlib.pyplot as plt
+import matplotlib.image as pltimg
+import seaborn as sns
+
+
+survey = survey.iloc[1: , :]
+survey
+
+
+# **Choosing attributes**
+
+
+df = pd.DataFrame(columns=['Age','Country','Education','YearsOfCoding','ProgrammingLanguage','ComputingPlatform','Income'])
+df['Age'] = survey['Q1']
+df['Country'] = survey['Q3']
+df['Education'] = survey['Q4']
+df['YearsOfCoding'] = survey['Q6']
+df['ProgrammingLanguage'] = survey['Q8']
+df['ComputingPlatform'] = survey['Q11']
+df['Income'] = survey['Q25']   
+df 
+
+
+# **Finding the missing values**
+
+print (df.isna().sum())
+
+
+# **Draw a map for developers of each country**
+
+
+import plotly.graph_objects as go
+countries = df['Country'].value_counts()
+
+
+fig = go.Figure(data=go.Choropleth(
+    locations = countries.index, 
+    z = countries,
+    locationmode = 'country names',    
+))
+fig.show()
+
+
+# **Removing the 'NaN' values**
+
+
+df_clean = df.dropna(subset=['Age','Country','Education','YearsOfCoding',
+                             'ProgrammingLanguage','ComputingPlatform','Income'])  
+df_clean
+
+
+# Finding the type of attributes
+
+
+print(df.dtypes)
+
+
+# **Starting the EDA for each attribute**
+
+
+import seaborn as sns
+sns.countplot(y='Education', data=df_clean)
+
+
+df['Education'].value_counts().plot(kind = 'pie', title = 'Education Level',autopct='%1.1f%%')
+
+
+df['Age'].value_counts().plot(kind = 'pie', title = 'Age Attribute by percentage',autopct='%1.1f%%') 
+
+
+import matplotlib.pyplot as plt
+df['Age'].value_counts().plot(kind = 'bar')
+plt.xlabel('Age')
+plt.ylabel('Count')
+plt.show()
+
+
+df_clean['YearsOfCoding'].value_counts().plot(kind = 'bar')
+plt.xlabel('YearsOfCoding')
+plt.ylabel('Count')
+plt.show()
+
+
+import seaborn as sns
+sns.countplot(y='ProgrammingLanguage', data=df_clean)
+
+
+import matplotlib.pyplot as plt
+df['Income'].value_counts().plot(kind = 'bar')
+plt.xlabel('Income')
+plt.ylabel('Count')
+plt.show()
+
+
+crosstab = pd.crosstab(df_clean['Education'],df_clean['YearsOfCoding'], normalize=True)
+crosstab.plot(kind = 'bar', stacked = '',grid='true')
+plt.xlabel('Education')
+plt.ylabel('Count')
+plt.show() 
+
+
+# **Choosing the most famous countries**
+
+
+top_countries = df_clean['Country'].value_counts().head(6)
+print(top_countries.index)
+
+
+# **Adding a new column called TopCountry**
+
+
+def select_countries(x):
+    if x  in top_countries.index:
+        x = x 
+    else:
+        x = "rest countries"
+    return x
+   
+
+df_clean['TopCountry'] = df_clean['Country'].apply(lambda x: select_countries(x))
+df_clean
+
+
+# **Choosing the top 9 salaries**
+
+
+Salaries = df_clean['Income'].value_counts().head(9)
+print(Salaries.index)
+
+
+# **Adding a new column called TopSalaries**
+
+
+def select_salaries(y):
+    if y  in Salaries.index:
+        y = y 
+    else:
+        y = "rest salaries"
+    return y
+   
+
+df_clean['TopSalaries'] = df_clean['Income'].apply(lambda y: select_salaries(y))
+df_clean
+
+
+crosstab = pd.crosstab(df_clean["TopCountry"],df_clean['TopSalaries'], normalize=True)
+crosstab.plot(kind = 'bar', stacked = 'true',grid='true')
+plt.show() 
+
+
+crosstab = pd.crosstab(df_clean["ComputingPlatform"],df_clean['TopCountry'], normalize=True)
+crosstab.plot(kind = 'bar', stacked = 'true',grid='true')
+plt.show() 
+
+
+df_clean['Country'].value_counts().plot(kind = 'pie', title = 'Countries', subplots=True,startangle=272,
+figsize=(15,10),autopct='%1.1f%%') 
+plt.ylabel('Countries')
+
+
+df_clean['TopCountry'].value_counts().plot(kind = 'pie', title = 'Top Six Countries and the Rest of the countries', subplots=True,startangle=272,
+figsize=(15,10),autopct='%1.1f%%') 
+plt.ylabel('TopCountries')
+
+
+df_clean['TopSalaries'].value_counts().plot(kind = 'pie', title = 'Top Nine Incomes and the Rest of the Incomes', subplots=True,startangle=260,
+figsize=(15,10),autopct='%1.1f%%') 
+plt.ylabel('TopSalaries')
+
+
+# **Making an encoder for Income**
+
+
+from sklearn.preprocessing import OrdinalEncoder
+income_level_order = [['$0-999',
+                        '1,000-1,999',
+                        '2,000-2,999',
+                        '3,000-3,999',
+                        '4,000-4,999',
+                        '5,000-7,499',
+                        '7,500-9,999',
+                        '10,000-14,999',
+                        '15,000-19,999',
+                        '20,000-24,999',
+                        '25,000-29,999',
+                        '30,000-39,999',
+                        '40,000-49,999',
+                        '50,000-59,999',
+                        '60,000-69,999',
+                        '70,000-79,999',
+                        '80,000-89,999',
+                        '90,000-99,999',
+                        '100,000-124,999',
+                        '125,000-149,999',
+                        '150,000-199,999',
+                        '200,000-249,999',
+                        '250,000-299,999',
+                        '300,000-499,999',
+                        '$500,000-999,999',
+                        '>$1,000,000']] 
+from sklearn.preprocessing import OrdinalEncoder
+encoder = OrdinalEncoder(categories = income_level_order) # create an encoder with order
+df_clean['IncomeLevel'] = encoder.fit_transform(df_clean['Income'].values.reshape(-1, 1)) # fit encoder with the column edu_level but only this column
+df_clean
+
+
+# **Grouping attribute Income to High-income and Low-income**
+
+
+df_clean['HighIncome'] = df_clean['IncomeLevel'].apply(lambda x:0 if x < 16 else 1)
+df_clean
+
+
+grouped = df_clean[['TopCountry','HighIncome']].groupby('HighIncome')  #group data into low and high incomes
+df_low = pd.DataFrame(grouped.get_group(0), columns=['TopCountry','HighIncome']) # 0 for low income
+df_low
+
+
+df_high = pd.DataFrame(grouped.get_group(1), columns=['TopCountry','HighIncome']) # 1 for high income
+df_high
+
+
+from sklearn.cluster import KMeans
+X_low = pd.get_dummies(df_low) #OneHot Encoding.  
+km = KMeans(n_clusters=5)  
+y_low = km.fit_predict(X_low) # labels of sample
+df_low['Cluster']=y_low
+df_low
+
+
+# **Applying the clustering for High-income and Low-Income for top 6 countries**
+
+
+import matplotlib.pyplot as plt
+churn_crosstab = pd.crosstab(df_low['Cluster'],df_low["TopCountry"],  normalize=True)
+churn_crosstab.plot(kind = 'bar', grid=True,fontsize=15)
+plt.legend(bbox_to_anchor=(1.0, 0.5))
+plt.show()
+
+
+X_high = pd.get_dummies(df_high) #OneHot Encoding.  
+km = KMeans(n_clusters=5)  
+y_high = km.fit_predict(X_high) # labels of sample
+df_high['Cluster']=y_high
+df_high
+
+
+churn_crosstab = pd.crosstab(df_high['Cluster'],df_high["TopCountry"],  normalize=True)
+churn_crosstab.plot(kind = 'bar', grid=True,fontsize=15)
+plt.legend(bbox_to_anchor=(1.0, 0.5))
+plt.show()
+
+
+# **Making an encoder for Education**
+
+
+from sklearn.preprocessing import OrdinalEncoder
+income_level_order = [['No formal education past high school',
+                        'Some college/university study without earning a bachelor’s degree',
+                        'I prefer not to answer',
+                        'Bachelor’s degree',
+                        'Master’s degree',
+                        'Doctoral degree',
+                        'Professional doctorate',
+                        ]] 
+from sklearn.preprocessing import OrdinalEncoder
+encoder = OrdinalEncoder(categories = income_level_order) # create an encoder with order
+df_clean['EducationLevel'] = encoder.fit_transform(df_clean['Education'].values.reshape(-1, 1)) # fit encoder with the column edu_level but only this column
+df_clean
+
+
+# **Applying the clustering for High-Education and Low-Education for top 6 countries**
+
+
+df_clean['EducationHigh'] = df_clean['EducationLevel'].apply(lambda x:0 if x < 3 else 1)
+df_clean
+
+
+grouped = df_clean[['TopCountry','EducationHigh']].groupby('EducationHigh')  #group data into low and high education
+df_low2 = pd.DataFrame(grouped.get_group(0), columns=['TopCountry','EducationHigh']) # 0 for low education
+df_low2
+
+
+df_high2 = pd.DataFrame(grouped.get_group(1), columns=['TopCountry','EducationHigh']) # 1 for high education
+df_high2
+
+
+# **Applying the clustering for High-Education and Low-Education for top 6 countries**
+
+
+X_low = pd.get_dummies(df_low2) #OneHot Encoding.  
+km = KMeans(n_clusters=5)  
+y_low = km.fit_predict(X_low) # labels of sample
+df_low2['Cluster']=y_low
+df_low2
+
+
+churn_crosstab = pd.crosstab(df_low2['Cluster'],df_low2["TopCountry"],  normalize=True)
+churn_crosstab.plot(kind = 'bar', grid=True,fontsize=15)
+plt.legend(bbox_to_anchor=(1.0, 0.5))
+plt.show()
+
+
+X_high = pd.get_dummies(df_high2) #OneHot Encoding.  
+km = KMeans(n_clusters=5)  
+y_high = km.fit_predict(X_high) # labels of sample
+df_high2['Cluster']=y_high
+df_high2
+
+
+churn_crosstab = pd.crosstab(df_high2['Cluster'],df_high2["TopCountry"],  normalize=True)
+churn_crosstab.plot(kind = 'bar', grid=True,fontsize=15)
+plt.legend(bbox_to_anchor=(1.0, 0.5))
+plt.show()
+
+
+grouped = df_clean[['TopSalaries','EducationHigh']].groupby('EducationHigh')  #group data into low and high education
+df_low3 = pd.DataFrame(grouped.get_group(0), columns=['TopSalaries','EducationHigh']) # 0 for low education
+df_low3
+
+
+df_high3 = pd.DataFrame(grouped.get_group(1), columns=['TopSalaries','EducationHigh']) # 1 for high education
+df_high3
+
+
+X_low = pd.get_dummies(df_low3) #OneHot Encoding.  
+km = KMeans(n_clusters=5)  
+y_low = km.fit_predict(X_low) # labels of sample
+df_low3['Cluster']=y_low
+df_low3
+
+
+# **Applying the clustering for High-Education and Low-Education for top 9 salaries**
+
+
+churn_crosstab = pd.crosstab(df_low3['Cluster'],df_low3["TopSalaries"],  normalize=True)
+churn_crosstab.plot(kind = 'bar', grid=True,fontsize=15)
+plt.legend(bbox_to_anchor=(1.0, 0.5))
+plt.show()
+
+
+X_high = pd.get_dummies(df_high3) #OneHot Encoding.  
+km = KMeans(n_clusters=5)  
+y_high = km.fit_predict(X_high) # labels of sample
+df_high3['Cluster']=y_high
+df_high3
+
+
+churn_crosstab = pd.crosstab(df_high3['Cluster'],df_high3["TopSalaries"],  normalize=True)
+churn_crosstab.plot(kind = 'bar', grid=True,fontsize=15)
+plt.legend(bbox_to_anchor=(1.0, 0.5))
+plt.show()
+
+
+# **Mapping our attributes tranform them from object to numerical**
+
+
+df_clean.Age = df_clean.Age.replace({
+    '50-54':1,
+    '22-24':2,
+    '45-49':3,
+    '30-34':4,
+    '40-44':5,
+    '35-39':6,
+    '18-21':7,
+    '70+':8,
+    '25-29':9,
+    '55-59':10,
+    '60-69':11
+})
+
+
+df_clean.Education = df_clean.Education.replace({
+    "Bachelor’s degree":1,
+    "Master’s degree":2,
+    "Doctoral degree":3,
+    "I prefer not to answer":4,
+    "No formal education past high school":5,
+    "Some college/university study without earning a bachelor’s degree":6,
+    "Professional doctorate":7
+})
+
+
+df_clean.YearsOfCoding = df_clean.YearsOfCoding.replace({
+    '5-10 years':1,
+    '20+ years':2,
+    '1-3 years':3,
+    '< 1 years':4,
+    '10-20 years':5,
+    '3-5 years':6
+})
+
+
+df_clean.ProgrammingLanguage = df_clean.ProgrammingLanguage.replace({
+    'Python':1,
+    'SQL':2,
+    'R':3,
+    'MATLAB':4,
+    'C':5,
+    'Javascript':6,
+    'C++':7,
+    'Julia':8,
+    'Other':9,
+    'Java':10,
+    'Bash':11,
+    'Swift':12,
+    'None':13
+})
+
+
+df_clean.ComputingPlatform = df_clean.ComputingPlatform.replace({
+    'A laptop':1,
+    'A cloud computing platform (AWS, Azure, GCP, hosted notebooks, etc)':2,
+    'A personal computer / desktop':3,
+    'A deep learning workstation (NVIDIA GTX, LambdaLabs, etc)':4,
+    'Other':5,
+    'None':6
+})
+
+
+df_clean.Income = df_clean.Income.replace({
+    '25,000-29,999':1,
+    '60,000-69,999':2,
+    '$0-999':3,
+    '30,000-39,999':4,
+    '15,000-19,999':5,
+    '70,000-79,999':6,
+    '2,000-2,999':7,
+    '10,000-14,999':8,
+    '5,000-7,499':9,
+    '20,000-24,999':10,
+    '1,000-1,999':11,
+    '100,000-124,999':12,
+    '7,500-9,999':13,
+    '4,000-4,999':14,
+    '40,000-49,999':15,
+    '50,000-59,999':16,
+    '3,000-3,999':17,
+    '300,000-499,999':18,
+    '200,000-249,999':19,
+    '125,000-149,999':20,
+    '250,000-299,999':21,
+    '80,000-89,999':22,
+    '90,000-99,999':23,
+    '150,000-199,999':24,
+    '>$1,000,000':25,
+    '$500,000-999,999':26
+})
+
+
+df_clean.TopCountry = df_clean.TopCountry.replace({
+    'India':1,
+    'United States of America':2,
+    'Other':3,
+    'Japan':4,
+    'Brazil':5,
+    'Russia':6,
+    'rest countries':7
+})
+
+
+# **Choosing which attributes to take for classification**
+
+
+feature_cols = ['Age', 'TopCountry', 'Education', 'YearsOfCoding', 'ProgrammingLanguage', 'ComputingPlatform']
+X = df_clean[feature_cols] #Features
+y = df_clean.HighIncome #Target Variable
+
+
+# **Finding the value of K to do our clustering**
+
+from sklearn.cluster import KMeans
+from yellowbrick.cluster import KElbowVisualizer
+# Instantiate the clustering model and visualizer
+model = KMeans()
+visualizer = KElbowVisualizer(model, k=(2,10))
+visualizer.fit(X)        # Fit the data to the visualizer
+visualizer.show()        # Finalize and render the figure
+
+
+# **Building the logisticRegress**
+
+
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.3,random_state=0)
+
+
+#Model development and prediction
+logreg = LogisticRegression()
+logreg.fit(X_train,y_train)
+y_pred=logreg.predict(X_test)
+
+
+y_pred=logreg.predict(X_test)
+
+
+cnf_matrix = metrics.confusion_matrix(y_test, y_pred)
+print(cnf_matrix)
+
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+
+
+print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
+
+
+df_clean.Age = df_clean.Age.replace({
+    '50-54':1,
+    '22-24':2,
+    '45-49':3,
+    '30-34':4,
+    '40-44':5,
+    '35-39':6,
+    '18-21':7,
+    '70+':8,
+    '25-29':9,
+    '55-59':10,
+    '60-69':11
+})
+
+
+df_clean.Education = df_clean.Education.replace({
+    "Bachelor’s degree":1,
+    "Master’s degree":2,
+    "Doctoral degree":3,
+    "I prefer not to answer":4,
+    "No formal education past high school":5,
+    "Some college/university study without earning a bachelor’s degree":6,
+    "Professional doctorate":7
+})
+
+
+df_clean.YearsOfCoding = df_clean.YearsOfCoding.replace({
+    '5-10 years':1,
+    '20+ years':2,
+    '1-3 years':3,
+    '< 1 years':4,
+    '10-20 years':5,
+    '3-5 years':6
+})
+
+
+df_clean.ProgrammingLanguage = df_clean.ProgrammingLanguage.replace({
+    'Python':1,
+    'SQL':2,
+    'R':3,
+    'MATLAB':4,
+    'C':5,
+    'Javascript':6,
+    'C++':7,
+    'Julia':8,
+    'Other':9,
+    'Java':10,
+    'Bash':11,
+    'Swift':12
+})
+
+
+df_clean.ComputingPlatform = df_clean.ComputingPlatform.replace({
+    'A laptop':1,
+    'A cloud computing platform (AWS, Azure, GCP, hosted notebooks, etc)':2,
+    'A personal computer / desktop':3,
+    'A deep learning workstation (NVIDIA GTX, LambdaLabs, etc)':4,
+    'Other':5
+})
+
+
+df_clean.Income = df_clean.Income.replace({
+    '25,000-29,999':1,
+    '60,000-69,999':2,
+    '$0-999':3,
+    '30,000-39,999':4,
+    '15,000-19,999':5,
+    '70,000-79,999':6,
+    '2,000-2,999':7,
+    '10,000-14,999':8,
+    '5,000-7,499':9,
+    '20,000-24,999':10,
+    '1,000-1,999':11,
+    '100,000-124,999':12,
+    '7,500-9,999':13,
+    '4,000-4,999':14,
+    '40,000-49,999':15,
+    '50,000-59,999':16,
+    '3,000-3,999':17,
+    '300,000-499,999':18,
+    '200,000-249,999':19,
+    '125,000-149,999':20,
+    '250,000-299,999':21,
+    '80,000-89,999':22,
+    '90,000-99,999':23,
+    '150,000-199,999':24,
+    '>$1,000,000':25,
+    '$500,000-999,999':26
+})
+
+
+df_clean.TopCountry = df_clean.TopCountry.replace({
+    'India':1,
+    'United States of America':2,
+    'Other':3,
+    'Japan':4,
+    'Brazil':5,
+    'Russia':6,
+    'rest countries':7
+})
+
+
+# **Building the Decision Tree model**
+
+
+features = ['Age', 'TopCountry', 'Education', 'YearsOfCoding', 'ProgrammingLanguage', 'ComputingPlatform']
+X = df_clean[features]
+y = df_clean["HighIncome"]
+
+
+df_clean = df_clean.drop('Country',axis=1)
+df_clean = df_clean.drop('TopSalaries',axis=1)
+
+
+target = df_clean['HighIncome']
+
+
+X = df_clean[features]
+
+
+le = LabelEncoder()
+target = le.fit_transform(target)
+
+
+y = target
+
+
+X_train, X_test, y_train, y_test = train_test_split(X , y, test_size = 0.7, random_state = 42)
+
+
+print("Training split input- ", X_train.shape)
+print("Testing split input- ", X_test.shape)
+
+
+dtree=DecisionTreeClassifier()
+dtree.fit(X_train,y_train)
+
+
+y_pred = dtree.predict(X_test)
+print("Classification report - \n", classification_report(y_test,y_pred))
+
+
+cm = confusion_matrix(y_test, y_pred)
+# plt.figure(figsize=(5,5))
+cm
+
+
+sns.heatmap(data=cm,linewidths=.5, annot=True,square = True,  cmap = 'Blues')
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+all_sample_title = 'Accuracy Score: {0}'.format(dtree.score(X_test, y_test))
+plt.title(all_sample_title, size = 15)
+plt.savefig("confusionTableDecisionTree.png")
+plt.show()
+
+
+plt.figure(figsize = (200,200), dpi=300)
+dec_tree = plot_tree(decision_tree=dtree, feature_names = df_clean.columns, 
+                      class_names =["Low Income", "High Income"] , filled = True , precision = 4, rounded = True)
+
+plt.savefig("graph.svg")
+
+
+print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
+
+
+# **Building the KNN model**
+
+
+features = ['Age', 'TopCountry', 'Education', 'YearsOfCoding', 'ProgrammingLanguage', 'ComputingPlatform']
+X = df_clean[features]
+y = df_clean["HighIncome"]
+
+
+import matplotlib.pyplot as plt 
+import sklearn.model_selection as model_selection
+from sklearn.neighbors import KNeighborsClassifier
+X_train, X_test, y_train, y_test = train_test_split(X , y, test_size = 0.3, random_state = 0)
+#normalisation
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()  
+scaler.fit(X_train)
+X_train = scaler.transform(X_train) 
+X_test = scaler.transform(X_test)
+
+#import metrics model and check the accuracy 
+from sklearn import metrics
+#Run k=1 until 25 
+k_list = []
+scores_list = [] 
+ 
+for k in range(1,25):
+        knn = KNeighborsClassifier(n_neighbors=k,weights="distance", metric="euclidean")
+        knn.fit(X_train,y_train)
+        y_pred=knn.predict(X_test) 
+        k_list.append(k)
+        accuracy = metrics.accuracy_score(y_test,y_pred)
+        print(k, 'accuracy',accuracy)
+        scores_list.append(metrics.accuracy_score(y_test,y_pred))
+
+
+#plot score
+import matplotlib.pyplot as plt
+plt.plot(k_list,scores_list)
+plt.xlabel('k')
+plt.ylabel('accuracy')
+plt.show()
+
+
+sns.heatmap(data=cm,linewidths=.5, annot=True,square = True,  cmap = 'Blues')
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+all_sample_title = 'Accuracy Score: {0}'.format(knn.score(X_test, y_test))
+plt.title(all_sample_title, size = 15)
+plt.savefig("confusionTableDecisionTree.png")
+plt.show()
+
+
+# **Building the MLP model**
+
+
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+# Fitting training data
+scaler.fit(X_train)
+# Applying the transformations to training and test data
+X_train = scaler.transform(X_train) 
+X_test = scaler.transform(X_test)
+
+
+from sklearn.neural_network import MLPClassifier
+clf = MLPClassifier(random_state=1, max_iter=1000) 
+clf.fit(X_train,y_train)
+
+y_pred = clf.predict(X_test)
+df_clean = pd.DataFrame(y_test)
+df_clean["HighIncome"] = y_pred
+
+print("report", classification_report(y_test,y_pred))
+
+
+from sklearn.metrics import plot_confusion_matrix
+plot_confusion_matrix(clf, X_test, y_test, 
+                      cmap=plt.cm.Blues)
+
+
+print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
+
+
+
+# **Building the Ensemble and Voting models**
+
+
+model_1 = LogisticRegression()
+model_2 = DecisionTreeClassifier()
+model_3 = KNeighborsClassifier()
+model_4 = MLPClassifier()
+
+
+# fit the models
+model_1.fit(X_train, y_train)
+model_2.fit(X_train, y_train)
+model_3.fit(X_train, y_train)
+model_4.fit(X_train, y_train)
+
+
+# predict with each
+prob_pred_1 = model_1.predict_proba(X_test)[:,1]
+prob_pred_2 = model_2.predict_proba(X_test)[:,1]
+prob_pred_3 = model_3.predict_proba(X_test)[:,1]
+prob_pred_4 = model_4.predict_proba(X_test)[:,1]
+
+
+# average the predictions
+prob_pred_avg = (prob_pred_1 + prob_pred_2 + prob_pred_3 + prob_pred_4) / 4.0
+# if pred_final >= 0.5 predict 1
+prob_pred_avg = np.array([int(b) for b in prob_pred_avg >= 0.5])
+prob_pred_avg
+
+
+pred_1 = model_1.predict(X_test)
+pred_2 = model_2.predict(X_test)
+pred_3 = model_3.predict(X_test)
+pred_4 = model_4.predict(X_test)
+
+
+m1 = LogisticRegression()
+m2 = DecisionTreeClassifier()
+m3 = KNeighborsClassifier()
+m4 = MLPClassifier()
+voting_model = VotingClassifier(
+    estimators=[('lr', m1), ('DT', m2), ('KNN', m3), ('MLP',m4)], voting='hard'
+)
+
+voting_model.fit(X_train, y_train)
+
+pred_voting = voting_model.predict(X_test)
+
+
+votes = voting_model.transform(X_test)
+for i in range(10):
+    print(f'Each model voted for: {votes[i,:]}')
+    print(f'VotingClassifier voted for: {pred_voting[i]}')
+
+# **Building the Confusion Matrices**
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, roc_curve, roc_auc_score
+cnf_matrix_1 = confusion_matrix(y_test, pred_1)
+cnf_matrix_2 = confusion_matrix(y_test, pred_2)
+cnf_matrix_3 = confusion_matrix(y_test, pred_3)
+cnf_matrix_4 = confusion_matrix(y_test, pred_4)
+cnf_matrix_avg = confusion_matrix(y_test, prob_pred_avg)
+cnf_matrix_voting = confusion_matrix(y_test, pred_voting)
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix_1), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix for model 1', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+plt.show()
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix_2), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix for model 2', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+plt.show()
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix_3), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix for model 3', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+plt.show()
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix_4), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix for model 4', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+plt.show()
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix_avg), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix for average', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+plt.show()
+
+class_names=[0,1] # name  of classes
+fig, ax = plt.subplots()
+tick_marks = np.arange(len(class_names))
+plt.xticks(tick_marks, class_names)
+plt.yticks(tick_marks, class_names)
+# create heatmap
+sns.heatmap(pd.DataFrame(cnf_matrix_voting), annot=True, cmap="YlGnBu" ,fmt='g')
+ax.xaxis.set_label_position("top")
+plt.tight_layout()
+plt.title('Confusion matrix for voting', y=1.1)
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+plt.show()
+
+print("Accuracy for model 1:",accuracy_score(y_test, pred_1))
+print("Precision for model 1:",precision_score(y_test, pred_1))
+print("Recall for model 1:",recall_score(y_test, pred_1),"\n")
+
+print("Accuracy for model 2:",accuracy_score(y_test, pred_2))
+print("Precision for model 2:",precision_score(y_test, pred_2))
+print("Recall for model 2:",recall_score(y_test, pred_2),"\n")
+
+print("Accuracy for model 3:",accuracy_score(y_test, pred_3))
+print("Precision for model 3:",precision_score(y_test, pred_3))
+print("Recall for model 3:",recall_score(y_test, pred_3),"\n")
+
+print("Accuracy for model 4:",accuracy_score(y_test, pred_4))
+print("Precision for model 4:",precision_score(y_test, pred_4))
+print("Recall for model 4:",recall_score(y_test, pred_4),"\n")
+
+print("Accuracy for average model:",accuracy_score(y_test, prob_pred_avg))
+print("Precision for average model:",precision_score(y_test, prob_pred_avg))
+print("Recall for average model:",recall_score(y_test, prob_pred_avg),"\n")
+
+print("Accuracy for voting model:",accuracy_score(y_test, pred_voting))
+print("Precision for voting model:",precision_score(y_test, pred_voting))
+print("Recall for voting model:",recall_score(y_test, pred_voting),"\n")
